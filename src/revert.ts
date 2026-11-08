@@ -8,7 +8,7 @@ import type { Io } from "./run";
 import { input } from "./run";
 
 const LINE = /^Reverts ([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+)#(\d+)$/;
-/** Pages of 100 closed PRs, most recently updated first, a re-run reads before giving up. */
+/** Pages of 100 closed PRs, most recently updated first, read before giving up. */
 export const MAX_PAGES = 10;
 
 interface Where {
@@ -36,7 +36,7 @@ interface Listed {
 }
 
 /**
- * On a re-run: whether a merged PR closed since this one reverts it, and when
+ * Before posting merged: whether a merged PR closed since this one reverts it, and when
  * it merged. Reads the pulls list (not search, which ignores `#` and `/` and
  * lags) by most recently updated, and stops at the first PR last updated
  * before this one merged: a later revert was updated when it merged.
@@ -79,4 +79,4 @@ export async function revertedSince(
 }
 
 const listingFailed = (why: string) =>
-  `A re-run checks whether this pull request was reverted before posting merged, and could not (${why}). Nothing sent, so a revert is never undone.`;
+  `Before posting merged, Cova Outcomes checks whether this pull request was reverted, and could not (${why}). Nothing sent, so a revert is never undone; re-run the workflow to try again.`;

@@ -50,14 +50,14 @@ Never sent: the diff, title, body, branch, author or reviewers. The repository n
 | `kind` | (required) | The kind of work declared in CoreValue. |
 | `api-url` | `https://api.corevalue.dev` | Change it only for a self-hosted CoreValue. |
 | `include-bot-prs` | `false` | `true` also reports pull requests written by bots, such as Dependabot and Renovate. They are skipped by default so dependency bumps do not count as merged work. |
-| `github-token` | the workflow's token | Reads pull requests when a run is re-run (below). Needs `pull-requests: read`. |
+| `github-token` | the workflow's token | Reads pull requests to check a merged one was not reverted since (below). Needs `pull-requests: read`. |
 
 ## Reverts
 
 When a merged pull request's description has the line GitHub's **Revert** button writes, `Reverts owner/repo#12`, the pull request it names is reported as `reverted`, at the revert's merge time. The line must be exactly that, for this repository.
 
 - A reverted pull request moves to the month of the revert in Work economics.
-- **Re-runs.** When a merged pull request's workflow is re-run, Cova Outcomes first checks whether a later merged pull request reverted it, and reports `reverted` if so. If it cannot check, it sends nothing and the step fails with the reason, so a re-run never undoes a revert.
+- **Never merged over a revert.** Before reporting a pull request as merged, Cova Outcomes checks whether a later merged pull request reverted it, and reports `reverted` if so. This covers a re-run, and a run that waited in the queue while the revert merged. If it cannot check, it sends nothing and the step fails with the reason; re-run it to try again.
 - **A revert of a revert** puts the change back, but the original pull request stays `reverted`. Count the pull request that re-lands the change as the work.
 - **A revert of a pull request merged before you installed Cova Outcomes** creates a unit that exists only as `reverted`. It is not a success, and it carries any cost tagged with it.
 

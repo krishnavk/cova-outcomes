@@ -100,12 +100,11 @@ export async function plan(io: Io): Promise<{ posts: Post[] } | { fail: string }
 
   const posts: Post[] = [];
   let own: Post = { kind, unit_id: unitId(where.repo, pr.number), outcome: "merged", at: pr.merged_at };
-  // A re-run after a revert must not post merged again (spec, "Reverts").
-  if (Number(env.GITHUB_RUN_ATTEMPT ?? "1") > 1) {
-    const reverted = await revertedSince(io, where, pr.number, pr.merged_at);
-    if ("fail" in reverted) return reverted;
-    if (reverted.at) own = { ...own, outcome: "reverted", at: reverted.at };
-  }
+  // Never post merged over a revert: a re-run, or a run that queued while
+  // its revert merged and reported first (owner, 2026-11-08: every run).
+  const reverted = await revertedSince(io, where, pr.number, pr.merged_at);
+  if ("fail" in reverted) return reverted;
+  if (reverted.at) own = { ...own, outcome: "reverted", at: reverted.at };
   posts.push(own);
   for (const n of revertTargets(pr.body ?? "", where)) {
     posts.push({ kind, unit_id: unitId(where.repo, n), outcome: "reverted", at: pr.merged_at });

@@ -20,7 +20,7 @@ inputs:
     required: false
     default: "false"
   github-token:
-    description: "Reads pull requests to find a revert when a run is re-run. Needs `pull-requests: read`."
+    description: "Reads pull requests to check a merged one was not reverted since. Needs `pull-requests: read`."
     required: false
     default: ${{ github.token }}
 runs:

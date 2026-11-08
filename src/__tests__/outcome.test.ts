@@ -112,7 +112,7 @@ describe("a closed pull request", () => {
   it("a trailing slash on api-url is dropped", async () => {
     const h = harness({ inputs: { "api-url": "https://core.test/" } });
     await main(h.io);
-    expect(h.calls[0]!.url).toBe("https://core.test/v1/outcomes");
+    expect(h.calls.find((c) => c.method === "POST")!.url).toBe("https://core.test/v1/outcomes");
   });
 });
 
@@ -142,20 +142,26 @@ describe("reverts", () => {
     expect(list.headers.Authorization).toBe("Bearer ghs_test");
   });
 
-  it("a re-run with no revert posts merged; a first run never reads GitHub", async () => {
+  it("a first run that queued while its revert merged posts reverted, not merged", async () => {
+    const h = harness({ pulls: [[listed(20, "Reverts acme/api#12", "2026-11-02T10:05:00Z", "2026-11-02T10:05:01Z")]] });
+    await main(h.io);
+    expect(h.posts()).toEqual([{ kind: "feature-pr", unit_id: "api#12", outcome: "reverted", at: "2026-11-02T10:05:00Z" }]);
+  });
+
+  it("with no revert since, merged is posted; a closed PR never reads GitHub", async () => {
     const rerun = harness({ env: { GITHUB_RUN_ATTEMPT: "3" }, pulls: [[listed(12, "Adds the thing.", MERGED_AT, MERGED_AT)]] });
     await main(rerun.io);
     expect(rerun.posts()).toEqual([{ kind: "feature-pr", unit_id: "api#12", outcome: "merged", at: MERGED_AT }]);
-    const first = harness({});
-    await main(first.io);
-    expect(first.calls.some((c) => c.method === "GET")).toBe(false);
+    const unmerged = harness({ event: closed({ merged: false }) });
+    await main(unmerged.io);
+    expect(unmerged.calls.some((c) => c.method === "GET")).toBe(false);
   });
 
-  it("11: a re-run whose listing fails posts nothing and fails the step with the reason", async () => {
+  it("11: a listing that fails posts nothing and fails the step with the reason", async () => {
     const h = harness({ env: { GITHUB_RUN_ATTEMPT: "2" }, pulls: [500] });
     expect(await main(h.io)).toBe(true);
     expect(h.posts()).toEqual([]);
-    expect(h.logs.join("\n")).toMatch(/::error title=Cova Outcomes::A re-run checks whether.*GitHub answered 500/);
+    expect(h.logs.join("\n")).toMatch(/::error title=Cova Outcomes::Before posting merged, Cova Outcomes checks.*GitHub answered 500/);
   });
 
   it("a re-run that would read more than the page cap posts nothing and fails", async () => {
@@ -174,7 +180,7 @@ describe("reverts", () => {
     expect(h.posts()).toEqual([{ kind: "feature-pr", unit_id: "api#12", outcome: "merged", at: MERGED_AT }]);
   });
 
-  it("a near miss in the re-run listing does not revert PR #12", async () => {
+  it("a near miss in the listing does not revert PR #12", async () => {
     const h = harness({
       env: { GITHUB_RUN_ATTEMPT: "2" },
       pulls: [[listed(20, "Reverts acme/api#123", "2026-11-03T09:00:00Z", "2026-11-03T09:00:01Z"), listed(21, "Reverts other/api#12", "2026-11-03T09:00:00Z", "2026-11-03T09:00:01Z")]],

@@ -47,7 +47,7 @@ async function revertedSince(io2, where, n, mergedAt) {
   }
   return { fail: listingFailed(`more than ${MAX_PAGES * 100} closed pull requests were updated since it merged`) };
 }
-var listingFailed = (why) => `A re-run checks whether this pull request was reverted before posting merged, and could not (${why}). Nothing sent, so a revert is never undone.`;
+var listingFailed = (why) => `Before posting merged, Cova Outcomes checks whether this pull request was reverted, and could not (${why}). Nothing sent, so a revert is never undone; re-run the workflow to try again.`;
 
 // src/run.ts
 var TITLE = "Cova Outcomes";
@@ -97,11 +97,9 @@ async function plan(io2) {
   }
   const posts = [];
   let own = { kind, unit_id: unitId(where.repo, pr.number), outcome: "merged", at: pr.merged_at };
-  if (Number(env.GITHUB_RUN_ATTEMPT ?? "1") > 1) {
-    const reverted = await revertedSince(io2, where, pr.number, pr.merged_at);
-    if ("fail" in reverted) return reverted;
-    if (reverted.at) own = { ...own, outcome: "reverted", at: reverted.at };
-  }
+  const reverted = await revertedSince(io2, where, pr.number, pr.merged_at);
+  if ("fail" in reverted) return reverted;
+  if (reverted.at) own = { ...own, outcome: "reverted", at: reverted.at };
   posts.push(own);
   for (const n of revertTargets(pr.body ?? "", where)) {
     posts.push({ kind, unit_id: unitId(where.repo, n), outcome: "reverted", at: pr.merged_at });
