@@ -1,0 +1,63 @@
+name: Release
+
+# Releases are made here, never from a laptop. Each is an exact tag
+# (v0.4.0); 0.x has no moving tag, so a change never reaches a user who has
+# not chosen it. The bundle is checked against the source before anything is
+# published, and dist/index.cjs gets a build provenance attestation (public
+# repositories; GitHub offers attestations on private ones only on Enterprise
+# Cloud).
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Exact version, for example 0.4.0. Must equal package.json."
+        required: true
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - run: npm ci --ignore-scripts
+
+      - name: Version is 0.x, matches package.json, and is not released yet
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          [[ "$VERSION" =~ ^0\.[0-9]+\.[0-9]+$ ]] || { echo "0.x.y versions only until 1.0.0: $VERSION"; exit 1; }
+          [ "$(node -p 'require("./package.json").version')" = "$VERSION" ] || { echo "package.json is not $VERSION"; exit 1; }
+          if git ls-remote --exit-code --tags origin "refs/tags/v$VERSION" >/dev/null; then echo "v$VERSION exists; tags are never moved"; exit 1; fi
+
+      - run: npm run typecheck
+      - run: npm test
+      - name: dist/ is the build of this source
+        run: npm run check-dist
+
+      - name: Build provenance for dist/index.cjs
+        if: ${{ !github.event.repository.private }}
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: dist/index.cjs
+
+      - name: Tag and publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          gh release create "v$VERSION" --target "$GITHUB_SHA" --title "v$VERSION" --generate-notes dist/index.cjs

@@ -1,0 +1,25 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm run typecheck
+      - run: npm test
+      # dist/ is what runners execute; it must be the build of this source.
+      - name: dist/ is current
+        run: npm run check-dist

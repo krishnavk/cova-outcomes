@@ -1,0 +1,28 @@
+name: Cova Outcomes
+description: Reports each merged or closed pull request's outcome to CoreValue, so its AI cost meets what the work became.
+author: CoreValue
+branding:
+  icon: check-circle
+  color: green
+inputs:
+  api-key:
+    description: "A CoreValue API key, from your repository's secrets. Fork and Dependabot runs get no secrets; they send nothing."
+    required: true
+  kind:
+    description: "The kind of work declared in CoreValue that these pull requests are units of, for example feature-pr."
+    required: true
+  api-url:
+    description: "CoreValue's API. Change it only for a self-hosted CoreValue."
+    required: false
+    default: https://api.corevalue.dev
+  include-bot-prs:
+    description: "true also reports pull requests written by bots (Dependabot, Renovate, other GitHub Apps)."
+    required: false
+    default: "false"
+  github-token:
+    description: "Reads pull requests to find a revert when a run is re-run. Needs `pull-requests: read`."
+    required: false
+    default: ${{ github.token }}
+runs:
+  using: node24
+  main: dist/index.cjs
