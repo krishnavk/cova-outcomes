@@ -1,7 +1,5 @@
 # Cova Outcomes
 
-<!-- DRAFT: every line of this README waits for the owner's sign-off. -->
-
 Reports each merged or closed pull request to [CoreValue](https://www.corevalue.dev) as the outcome of a unit of work, so its AI cost meets what the work became: merged, closed or reverted.
 
 CoreValue then shows cost per merged pull request in **Reports › Work economics**, including the Claude Code and Codex calls your developers sync with `cova` when the kind counts coding agents.
