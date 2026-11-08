@@ -6,7 +6,7 @@ branding:
   color: green
 inputs:
   api-key:
-    description: "A CoreValue API key, from your repository's secrets. Fork and Dependabot runs get no secrets; they send nothing."
+    description: "A CoreValue API key, from your repository's secrets. Runs from forks get no secrets; they send nothing."
     required: true
   kind:
     description: "The kind of work declared in CoreValue that these pull requests are units of, for example feature-pr."

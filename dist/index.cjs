@@ -45,7 +45,7 @@ async function revertedSince(io2, where, n, mergedAt) {
     }
     if (listed.length < 100) return { at: latest };
   }
-  return { fail: listingFailed(`more than ${MAX_PAGES * 100} pull requests closed since it merged`) };
+  return { fail: listingFailed(`more than ${MAX_PAGES * 100} closed pull requests were updated since it merged`) };
 }
 var listingFailed = (why) => `A re-run checks whether this pull request was reverted before posting merged, and could not (${why}). Nothing sent, so a revert is never undone.`;
 
@@ -53,9 +53,11 @@ var listingFailed = (why) => `A re-run checks whether this pull request was reve
 var TITLE = "Cova Outcomes";
 var RETRIES = 2;
 var TIMEOUT_MS = 5e3;
-var notice = (io2, message) => io2.log(`::notice title=${TITLE}::${message}`);
-var warning = (io2, message) => io2.log(`::warning title=${TITLE}::${message}`);
-var error = (io2, message) => io2.log(`::error title=${TITLE}::${message}`);
+var TEMPORARY = /* @__PURE__ */ new Set([408, 429]);
+var escapeData = (s) => s.replace(/%/g, "%25").replace(/\r/g, "%0D").replace(/\n/g, "%0A");
+var notice = (io2, message) => io2.log(`::notice title=${TITLE}::${escapeData(message)}`);
+var warning = (io2, message) => io2.log(`::warning title=${TITLE}::${escapeData(message)}`);
+var error = (io2, message) => io2.log(`::error title=${TITLE}::${escapeData(message)}`);
 function input(env, name) {
   return (env[`INPUT_${name.toUpperCase()}`] ?? "").trim();
 }
@@ -78,12 +80,12 @@ async function plan(io2) {
     return { posts: [] };
   }
   if (input(env, "api-key") === "") {
-    notice(io2, "No API key: fork and Dependabot runs get no secrets. Nothing sent.");
+    notice(io2, "No API key: GitHub passes no secrets to runs from forks. Nothing sent.");
     return { posts: [] };
   }
   const kind = input(env, "kind");
   if (kind === "") return { fail: "The kind input is empty: name the kind of work declared in CoreValue." };
-  if (pr.user?.type === "Bot" && input(env, "include-bot-prs") !== "true") {
+  if (pr.user?.type === "Bot" && input(env, "include-bot-prs").toLowerCase() !== "true") {
     notice(io2, `#${pr.number} was written by a bot; set include-bot-prs: true to report it. Nothing sent.`);
     return { posts: [] };
   }
@@ -119,7 +121,7 @@ async function send(io2, post) {
         signal: AbortSignal.timeout(TIMEOUT_MS)
       });
       if (res.ok) return { sent: true };
-      if (res.status < 500) return { sent: false, refused: `${res.status}: ${await reason(res)}` };
+      if (res.status < 500 && !TEMPORARY.has(res.status)) return { sent: false, refused: `${res.status}: ${await reason(res)}` };
       last = `${res.status}`;
     } catch (e) {
       last = e instanceof Error ? e.message : String(e);

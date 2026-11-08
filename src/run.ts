@@ -42,10 +42,13 @@ interface PullRequest {
 const TITLE = "Cova Outcomes";
 const RETRIES = 2;
 const TIMEOUT_MS = 5_000;
+const TEMPORARY = new Set([408, 429]);
 
-export const notice = (io: Io, message: string) => io.log(`::notice title=${TITLE}::${message}`);
-export const warning = (io: Io, message: string) => io.log(`::warning title=${TITLE}::${message}`);
-const error = (io: Io, message: string) => io.log(`::error title=${TITLE}::${message}`);
+/** A workflow command's message, encoded so text from Core cannot split it or start another command. */
+export const escapeData = (s: string) => s.replace(/%/g, "%25").replace(/\r/g, "%0D").replace(/\n/g, "%0A");
+export const notice = (io: Io, message: string) => io.log(`::notice title=${TITLE}::${escapeData(message)}`);
+export const warning = (io: Io, message: string) => io.log(`::warning title=${TITLE}::${escapeData(message)}`);
+const error = (io: Io, message: string) => io.log(`::error title=${TITLE}::${escapeData(message)}`);
 
 export function input(env: Io["env"], name: string): string {
   return (env[`INPUT_${name.toUpperCase()}`] ?? "").trim();
@@ -78,12 +81,12 @@ export async function plan(io: Io): Promise<{ posts: Post[] } | { fail: string }
     return { posts: [] };
   }
   if (input(env, "api-key") === "") {
-    notice(io, "No API key: fork and Dependabot runs get no secrets. Nothing sent.");
+    notice(io, "No API key: GitHub passes no secrets to runs from forks. Nothing sent.");
     return { posts: [] };
   }
   const kind = input(env, "kind");
   if (kind === "") return { fail: "The kind input is empty: name the kind of work declared in CoreValue." };
-  if (pr.user?.type === "Bot" && input(env, "include-bot-prs") !== "true") {
+  if (pr.user?.type === "Bot" && input(env, "include-bot-prs").toLowerCase() !== "true") {
     notice(io, `#${pr.number} was written by a bot; set include-bot-prs: true to report it. Nothing sent.`);
     return { posts: [] };
   }
@@ -126,7 +129,8 @@ export async function send(io: Io, post: Post): Promise<Sent> {
         signal: AbortSignal.timeout(TIMEOUT_MS),
       });
       if (res.ok) return { sent: true };
-      if (res.status < 500) return { sent: false, refused: `${res.status}: ${await reason(res)}` };
+      // 408 and 429 are temporary, like a 5xx: retried, then a warning.
+      if (res.status < 500 && !TEMPORARY.has(res.status)) return { sent: false, refused: `${res.status}: ${await reason(res)}` };
       last = `${res.status}`;
     } catch (e) {
       last = e instanceof Error ? e.message : String(e);

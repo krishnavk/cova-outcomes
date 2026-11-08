@@ -23,7 +23,7 @@ jobs:
   outcome:
     runs-on: ubuntu-latest
     steps:
-      - uses: krishnavk/cova-outcomes@v0
+      - uses: krishnavk/cova-outcomes@v0.1.0
         with:
           api-key: ${{ secrets.COVA_API_KEY }}
           kind: feature-pr      # the kind of work declared in CoreValue
@@ -65,8 +65,9 @@ When a merged pull request's description has the line GitHub's **Revert** button
 
 - **One sender per kind.** Each report replaces what CoreValue holds for that pull request, including a people-cost estimate or quality score another sender set. Do not send those from elsewhere for a kind Cova Outcomes reports.
 - **Same-named repositories.** `acme/api#12` and `other/api#12` are the same unit. Use a different kind for each, or keep repository names unique.
-- **Forks and Dependabot.** GitHub does not pass secrets to `pull_request` runs from forks or Dependabot, so those report nothing; the step succeeds with a notice. Do not switch to `pull_request_target` to get around it: that runs with your secrets on code you have not reviewed.
-- **CoreValue unreachable.** Each report is retried twice. If CoreValue still does not answer, the step warns and succeeds; re-run the workflow later to send it. If CoreValue refuses a report (an unknown kind, a revoked key), the step fails with CoreValue's reason.
+- **Forks.** GitHub does not pass secrets to `pull_request` runs from forks, so those report nothing; the step succeeds with a notice. Do not switch to `pull_request_target` to get around it: that runs with your secrets on code you have not reviewed.
+- **Bots.** Pull requests written by bots, such as Dependabot, are skipped unless `include-bot-prs` is `true`.
+- **CoreValue unreachable or busy.** Each report is retried twice. If CoreValue still does not answer, or asks to slow down, the step warns and succeeds; re-run the workflow later to send it. If CoreValue refuses a report (an unknown kind, a revoked key), the step fails with CoreValue's reason.
 
 ## License
 

@@ -8,7 +8,7 @@ import type { Io } from "./run";
 import { input } from "./run";
 
 const LINE = /^Reverts ([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+)#(\d+)$/;
-/** Pages of 100 closed PRs a re-run reads before giving up. */
+/** Pages of 100 closed PRs, most recently updated first, a re-run reads before giving up. */
 export const MAX_PAGES = 10;
 
 interface Where {
@@ -75,7 +75,7 @@ export async function revertedSince(
     }
     if (listed.length < 100) return { at: latest };
   }
-  return { fail: listingFailed(`more than ${MAX_PAGES * 100} pull requests closed since it merged`) };
+  return { fail: listingFailed(`more than ${MAX_PAGES * 100} closed pull requests were updated since it merged`) };
 }
 
 const listingFailed = (why: string) =>

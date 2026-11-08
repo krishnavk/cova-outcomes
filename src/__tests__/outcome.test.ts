@@ -165,6 +165,24 @@ describe("reverts", () => {
     expect(h.posts()).toEqual([]);
   });
 
+  it("paging stops at the first PR updated before this one merged, even inside a full page", async () => {
+    const fresh = Array.from({ length: 50 }, (_, i) => listed(2000 + i, "", "2026-11-05T00:00:00Z", "2026-11-05T00:00:00Z"));
+    const stale = Array.from({ length: 50 }, (_, i) => listed(100 + i, "Reverts acme/api#12", "2026-10-01T00:00:00Z", "2026-10-01T00:00:00Z"));
+    const h = harness({ env: { GITHUB_RUN_ATTEMPT: "2" }, pulls: [[...fresh, ...stale], [listed(7, "Reverts acme/api#12", MERGED_AT, "2026-11-09T00:00:00Z")]] });
+    await main(h.io);
+    expect(h.calls.filter((c) => c.method === "GET")).toHaveLength(1);
+    expect(h.posts()).toEqual([{ kind: "feature-pr", unit_id: "api#12", outcome: "merged", at: MERGED_AT }]);
+  });
+
+  it("a near miss in the re-run listing does not revert PR #12", async () => {
+    const h = harness({
+      env: { GITHUB_RUN_ATTEMPT: "2" },
+      pulls: [[listed(20, "Reverts acme/api#123", "2026-11-03T09:00:00Z", "2026-11-03T09:00:01Z"), listed(21, "Reverts other/api#12", "2026-11-03T09:00:00Z", "2026-11-03T09:00:01Z")]],
+    });
+    await main(h.io);
+    expect(h.posts()).toEqual([{ kind: "feature-pr", unit_id: "api#12", outcome: "merged", at: MERGED_AT }]);
+  });
+
   it("11: near misses name nothing; the exact line matches in any case", () => {
     const where = { owner: "acme", repo: "api" };
     expect(revertTargets("Reverts acme/api#123", where)).toEqual([123]); // #123, never #12
@@ -224,6 +242,22 @@ describe("6: CoreValue's answers", () => {
     expect(await main(h.io)).toBe(false);
     expect(h.posts()).toHaveLength(2);
     expect(h.summary.join("")).toContain("sent");
+  });
+
+  it("a 429 or 408 is temporary: retried, then a warning, and the step succeeds", async () => {
+    for (const status of [429, 408]) {
+      const h = harness({ core: [{ status }] });
+      expect(await main(h.io)).toBe(false);
+      expect(h.posts()).toHaveLength(3);
+    }
+  });
+
+  it("Core's reason cannot split the annotation or start another workflow command", async () => {
+    const h = harness({ core: [{ status: 400, body: { error: "bad\n::add-mask::x 100%" } }] });
+    expect(await main(h.io)).toBe(true);
+    const line = h.logs.find((l) => l.startsWith("::error"))!;
+    expect(line).toContain("bad%0A::add-mask::x 100%25");
+    expect(line).not.toContain("\n");
   });
 
   it("a 4xx fails the step with Core's reason and is not retried", async () => {
